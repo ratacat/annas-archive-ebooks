@@ -11,15 +11,17 @@ Search and download ebooks from Anna's Archive, which indexes millions of books 
 
 ## Prerequisites
 
-**IMPORTANT: Downloads require an Anna's Archive membership key.**
+**Automated downloads require an Anna's Archive membership key.** Search always works without a key.
 
-Before using download functionality, the user must:
-1. Have an Anna's Archive membership (https://annas-archive.li/donate)
-2. Set their API key: `export ANNAS_ARCHIVE_KEY="your-key"`
+If a key is set, fast downloads work automatically. If no key is set or the key is invalid, the script will:
+1. Show a direct link to the book's page for manual download in a browser
+2. Explain that free slow downloads require a captcha and can't be automated
+3. Encourage supporting Anna's Archive with a membership (starts at $2)
 
-The key is found in Account Settings after becoming a member. Search works without a key, but downloads will fail.
-
-**If key is not set:** Inform the user they need to set `ANNAS_ARCHIVE_KEY` and provide the setup instructions above.
+**To set up automated downloads:**
+1. Donate at https://annas-archive.gl/donate
+2. Find your key in Account Settings
+3. Set: `export ANNAS_ARCHIVE_KEY="your-key"`
 
 ## When to Use
 
@@ -59,6 +61,7 @@ digraph download_flow {
     prefer_recent [label="Prefer most recent\nunless specific edition requested"];
     format_ok [label="Preferred format available?" shape=diamond];
     download [label="Download via fast API"];
+    rename [label="Rename to clean filename\ntitle-author.ext"];
     convert [label="Use ebook-extractor\nto convert to text"];
 
     search -> verify;
@@ -68,7 +71,8 @@ digraph download_flow {
     prefer_recent -> format_ok;
     format_ok -> download [label="yes"];
     format_ok -> search [label="no - try different format"];
-    download -> convert;
+    download -> rename;
+    rename -> convert;
 }
 ```
 
@@ -84,6 +88,9 @@ python3 annas.py details adb5293cf369256a883718e71d3771c3
 
 # Download
 python3 annas.py download adb5293cf369256a883718e71d3771c3 --output ./books/
+
+# REQUIRED: Rename to a clean filename using glob + md5
+mv ./books/*adb5293cf369256a* ./books/clean-code-robert-martin.pdf
 ```
 
 ### Handle multiple editions
@@ -97,14 +104,44 @@ Default priority when user doesn't specify: `pdf > epub > mobi > azw3 > djvu`
 
 ## API Details
 
-**Search endpoint:** `https://annas-archive.li/search`
+**Search endpoint:** `https://annas-archive.gl/search`
 - `q` - query string
 - `ext` - format filter (pdf, epub, mobi, azw3, djvu)
 - `sort` - `year_desc` for most recent first
 
-**Fast download API:** `https://annas-archive.li/dyn/api/fast_download.json`
+**Fast download API:** `https://annas-archive.gl/dyn/api/fast_download.json`
 - `md5` - book identifier
 - `key` - from ANNAS_ARCHIVE_KEY env var
+
+**Manual download page:** `https://annas-archive.gl/md5/<md5>`
+- Shows both fast and slow download options
+- Slow downloads are free but require solving a captcha in a browser
+
+## REQUIRED: Rename After Download
+
+**Always rename downloaded files immediately.** Anna's Archive filenames are long, contain unicode characters that break shell commands, and are generally unusable.
+
+### Naming convention: `title-author.ext`
+- Lowercase
+- Hyphens between words
+- Title and author only, no year/publisher/md5
+- Keep the original extension
+
+### How to rename
+Use the MD5 hash with a glob to find the file (never type the original filename):
+```bash
+mv /tmp/books/*729a66f87a5a6*.pdf /tmp/books/atomic-habits-james-clear.pdf
+```
+
+### Examples
+| Original (Anna's Archive) | Renamed |
+|---|---|
+| `Atomic Habits_ The life-changing... -- Anna\u2019s Archive.pdf` | `atomic-habits-james-clear.pdf` |
+| `Clean Code_ A Handbook of... -- Anna\u2019s Archive.epub` | `clean-code-robert-martin.epub` |
+| `Design Patterns_ Elements of... -- Anna\u2019s Archive.pdf` | `design-patterns-gang-of-four.pdf` |
+
+### Why this is required
+Anna's Archive filenames contain unicode right single quotation marks (`\u2019`) that look identical to ASCII apostrophes but aren't. This causes silent failures in `cp`, `mv`, `cat`, and every other shell command. AI agents consistently fail to handle these filenames. Renaming immediately eliminates the problem.
 
 ## Common Mistakes
 
@@ -114,6 +151,7 @@ Default priority when user doesn't specify: `pdf > epub > mobi > azw3 > djvu`
 | Wrong edition | Use `--verify` flag with expected title |
 | Format mismatch | Explicitly set `--format` |
 | Book not found | Try shorter query, author name variations |
+| File not found after download | Filenames have unicode chars - use glob with md5: `ls *<md5>*` |
 
 ## Converting to Text
 
@@ -126,8 +164,8 @@ Typical workflow:
 ## Mirror Fallback
 
 The `.org` domain is defunct. The script tries these mirrors in order:
-- annas-archive.li (primary)
-- annas-archive.gl
+- annas-archive.gl (primary)
+- annas-archive.li
 - annas-archive.in
 - annas-archive.pm
 

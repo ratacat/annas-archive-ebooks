@@ -18,8 +18,8 @@ from pathlib import Path
 
 # Mirror domains in order of preference (.org is defunct)
 MIRROR_DOMAINS = [
-    "annas-archive.li",
     "annas-archive.gl",
+    "annas-archive.li",
     "annas-archive.in",
     "annas-archive.pm",
 ]
@@ -95,33 +95,63 @@ def get_api_key():
     """Get API key from environment, with helpful error if missing."""
     key = os.environ.get('ANNAS_ARCHIVE_KEY')
     if not key:
-        print("""
-╔══════════════════════════════════════════════════════════════════╗
-║  ANNAS_ARCHIVE_KEY not set                                       ║
+        return None
+    return key
+
+
+def _print_membership_message(reason="Membership required", md5=None):
+    """Print a friendly message about supporting Anna's Archive."""
+    base_url = f"https://{_working_domain}" if _working_domain else f"https://{MIRROR_DOMAINS[0]}"
+    manual_section = ""
+    if md5:
+        manual_section = f"""║                                                                  ║
+║  You can still download this book manually in your browser:      ║
+║  {base_url + '/md5/' + md5:<63}║
+║  (Free slow downloads are available but require a captcha,       ║
+║  so they can't be automated.)                                    ║
+║                                                                  ║
 ╠══════════════════════════════════════════════════════════════════╣
-║  Downloads require an Anna's Archive membership.                 ║
+"""
+    print(f"""
+╔══════════════════════════════════════════════════════════════════╗
+║  {reason:<63}║
+╠══════════════════════════════════════════════════════════════════╣
+{manual_section}║                                                                  ║
+║  Anna's Archive operates as a non-profit, open-source,           ║
+║  open-data project. By donating and becoming a member, you       ║
+║  support their operations and continued development.             ║
 ║                                                                  ║
-║  To set up:                                                      ║
-║  1. Get a membership: https://annas-archive.li/donate           ║
-║  2. Find your key in Account Settings                            ║
-║  3. Set the environment variable:                                ║
+║  Thanks for keeping them going!                                  ║
 ║                                                                  ║
+║  A membership unlocks automated fast downloads and starts        ║
+║  at just $2:                                                     ║
+║  https://annas-archive.gl/donate?r=7XfHurr                      ║
+║                                                                  ║
+║  After donating, set your key:                                   ║
 ║     export ANNAS_ARCHIVE_KEY="your-key-here"                     ║
 ║                                                                  ║
 ║  Add to ~/.bashrc or ~/.zshrc to persist across sessions.        ║
 ╚══════════════════════════════════════════════════════════════════╝
 """, file=sys.stderr)
-        return None
-    return key
 
 
 def fetch_url(url, headers=None):
     """Fetch URL and return response text."""
-    req = urllib.request.Request(url, headers=headers or {})
+    default_headers = {'User-Agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36'}
+    if headers:
+        default_headers.update(headers)
+    req = urllib.request.Request(url, headers=default_headers)
     try:
         with urllib.request.urlopen(req, timeout=30) as response:
             return response.read().decode('utf-8')
     except urllib.error.HTTPError as e:
+        # Read error body — API returns JSON with error details on 403
+        try:
+            body = e.read().decode('utf-8')
+            if body and (body.strip().startswith('{') or body.strip().startswith('[')):
+                return body
+        except Exception:
+            pass
         print(f"HTTP Error {e.code}: {e.reason}", file=sys.stderr)
         return None
     except urllib.error.URLError as e:
@@ -282,7 +312,9 @@ def download_book(md5, output_dir=None, path_index=0, domain_index=0):
     """
     key = get_api_key()
     if not key:
+        _print_membership_message("ANNAS_ARCHIVE_KEY not set", md5=md5)
         return None
+
 
     # Call fast download API
     params = {
@@ -306,7 +338,11 @@ def download_book(md5, output_dir=None, path_index=0, domain_index=0):
         return None
 
     if data.get('error'):
-        print(f"API Error: {data['error']}", file=sys.stderr)
+        error_msg = data['error']
+        if 'not a member' in error_msg.lower() or 'invalid' in error_msg.lower() or 'expired' in error_msg.lower():
+            _print_membership_message(error_msg, md5=md5)
+        else:
+            print(f"API Error: {error_msg}", file=sys.stderr)
         return None
 
     download_url = data.get('download_url')
