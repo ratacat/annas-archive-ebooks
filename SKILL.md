@@ -19,7 +19,7 @@ If a key is set, fast downloads work automatically. If no key is set or the key 
 3. Encourage supporting Anna's Archive with a membership (starts at $2)
 
 **To set up automated downloads:**
-1. Donate at https://annas-archive.gl/donate
+1. [Donate at Anna's Archive](https://annas-archive.gl/donate?r=7XfHurr)
 2. Find your key in Account Settings
 3. Set: `export ANNAS_ARCHIVE_KEY="your-key"`
 

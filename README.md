@@ -1,6 +1,6 @@
 # Anna's Archive Ebook Search & Download
 
-A Claude Code skill and CLI tool for searching and downloading ebooks from [Anna's Archive](https://annas-archive.li).
+A Claude Code skill and CLI tool for searching and downloading ebooks from [Anna's Archive](https://annas-archive.gl).
 
 ## Features
 
@@ -15,7 +15,7 @@ A Claude Code skill and CLI tool for searching and downloading ebooks from [Anna
 
 **Downloads require an Anna's Archive membership key.**
 
-1. Get a membership at https://annas-archive.li/donate
+1. [Get a membership](https://annas-archive.gl/donate?r=7XfHurr)
 2. Set your API key:
    ```bash
    export ANNAS_ARCHIVE_KEY="your-key-here"
@@ -67,8 +67,8 @@ When no format is specified: `pdf > epub > mobi > azw3 > djvu`
 
 The tool automatically tries multiple mirrors if the primary domain is unreachable:
 
-1. annas-archive.li (primary)
-2. annas-archive.gl
+1. annas-archive.gl (primary)
+2. annas-archive.li
 3. annas-archive.in
 4. annas-archive.pm
 
